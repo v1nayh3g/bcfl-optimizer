@@ -45,19 +45,21 @@ class MinerPool:
     #   t_ver = model_size / proc_freq
     #   e_ver = ver_power * t_ver
     # ------------------------------------------------------------------
-    def verification_cost(self, model_size=2.5e6):
+    def verification_cost(self, model_size=2.5e6, s_d=1):
         """Per-miner verification latency (s) and energy (J).
 
         Parameters
         ----------
         model_size : float
             Size of the model update in bits.
+        s_d : int
+            Number of selected devices (dictates verification load).
 
         Returns
         -------
         t_ver, e_ver : ndarray, ndarray
         """
-        t_ver = model_size / self.proc_freq
+        t_ver = s_d * (model_size / self.proc_freq)
         e_ver = self.ver_power * t_ver
         return t_ver, e_ver
 

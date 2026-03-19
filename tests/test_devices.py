@@ -53,10 +53,11 @@ def test_total_cost_sum():
     pool = DevicePool.random(n=5, seed=42)
     t_comp, e_comp = pool.computation_cost()
     t_up, e_up = pool.upload_cost()
+    t_dn, e_dn = pool.download_cost()
     t_total, e_total = pool.total_cost()
 
-    np.testing.assert_allclose(t_total, t_comp + t_up)
-    np.testing.assert_allclose(e_total, e_comp + e_up)
+    np.testing.assert_allclose(t_total, t_comp + t_up + t_dn)
+    np.testing.assert_allclose(e_total, e_comp + e_up + e_dn)
 
 
 def test_random_factory():

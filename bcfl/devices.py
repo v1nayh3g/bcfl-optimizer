@@ -118,6 +118,17 @@ class DevicePool:
         e_up = self.tx_power * t_up
         return t_up, e_up
 
+    # ------------------------------------------------------------------
+    # Eq. 8: Download cost
+    # ------------------------------------------------------------------
+    def download_cost(self, model_size=2.5e6, bandwidth=1e6, noise_power=1e-10):
+        """Per-device download latency (s) and energy (J)."""
+        snr = (self.tx_power * self.channel_gain) / noise_power
+        rate = bandwidth * np.log2(1 + snr)
+        t_dn = model_size / rate
+        e_dn = self.tx_power * t_dn  # Simplified representation of receive energy
+        return t_dn, e_dn
+
     def total_cost(self, epochs=5, kappa=1e-28,
                    model_size=2.5e6, bandwidth=1e6, noise_power=1e-10):
         """Per-device total latency (s) and energy (J).
@@ -128,7 +139,8 @@ class DevicePool:
         """
         t_comp, e_comp = self.computation_cost(epochs, kappa)
         t_up, e_up = self.upload_cost(model_size, bandwidth, noise_power)
-        return t_comp + t_up, e_comp + e_up
+        t_dn, e_dn = self.download_cost(model_size, bandwidth, noise_power)
+        return t_comp + t_up + t_dn, e_comp + e_up + e_dn
 
     # ------------------------------------------------------------------
     # Factory methods

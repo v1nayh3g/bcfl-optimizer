@@ -56,10 +56,11 @@ class OptimizationResult:
         )
 
 
-def _round_cost(device_pool, miner_pool, dev_idx, miner_idx, a_fork,
+def _round_cost(device_pool, miner_pool, dev_idx, miner_idx, a_fork, s_d=1,
                 epochs=5, kappa=1e-28, model_size=2.5e6,
                 bandwidth=1e6, noise_power=1e-10,
-                block_gen_time=1.0, block_gen_energy=2.0):
+                block_gen_time=1.0, block_gen_energy=2.0,
+                propagation_delay=0.1):
     """Compute total round latency T and energy E for a given selection.
 
     Implements Equation 9 from the paper.
@@ -67,25 +68,32 @@ def _round_cost(device_pool, miner_pool, dev_idx, miner_idx, a_fork,
     # Device costs (selected subset)
     t_comp, e_comp = device_pool.computation_cost(epochs, kappa)
     t_up, e_up = device_pool.upload_cost(model_size, bandwidth, noise_power)
-    t_dev = t_comp + t_up  # per-device total
+    t_dn, e_dn = device_pool.download_cost(model_size, bandwidth, noise_power)
+    t_dev = t_comp + t_up  # computation + upload
     e_dev = e_comp + e_up
 
-    # Miner costs (selected subset)
-    t_ver, e_ver = miner_pool.verification_cost(model_size)
+    # Miner costs (selected subset) (Eq. 4 verification penalty)
+    t_ver, e_ver = miner_pool.verification_cost(model_size, s_d)
 
-    # Eq. 9: T = A_fork * (max_device_time + max_miner_ver + E[t_bg] + t_bp)
+    # Simplified Block Propagation costs (Eq. 7 representation)
+    expected_t_bp = len(miner_idx) * propagation_delay * 0.5 
+    expected_e_bp = len(miner_idx) * 0.1 # Dummy propagation energy overhead
+
+    # Eq. 9: T = A_fork * (max_device_time + max_miner_ver + E[t_bg] + t_bp) + max_t_dn
     T = a_fork * (
         np.max(t_dev[dev_idx])
         + np.max(t_ver[miner_idx])
         + block_gen_time
-    )
+        + expected_t_bp
+    ) + np.max(t_dn[dev_idx])
 
-    # Eq. 9: E = A_fork * (sum_device_energy + sum_miner_energy + e_bg)
+    # Eq. 9: E = A_fork * (sum_device_energy + sum_miner_energy + e_bg + e_bp) + sum_e_dn
     E = a_fork * (
         np.sum(e_dev[dev_idx])
         + np.sum(e_ver[miner_idx])
         + block_gen_energy
-    )
+        + expected_e_bp
+    ) + np.sum(e_dn[dev_idx])
 
     return T, E
 
@@ -155,9 +163,11 @@ def optimize(device_pool, miner_pool, s_d, beta=0.5,
     all_min = np.arange(N_M)
     a_fork_all = forking_multiplier(N_M, propagation_delay, mining_rate)
     T_all, E_all = _round_cost(
-        device_pool, miner_pool, all_dev, all_min, a_fork_all,
-        epochs, kappa, model_size, bandwidth, noise_power,
-        block_gen_time, block_gen_energy,
+        device_pool, miner_pool, all_dev, all_min, a_fork_all, s_d=s_d,
+        epochs=epochs, kappa=kappa, model_size=model_size,
+        bandwidth=bandwidth, noise_power=noise_power,
+        block_gen_time=block_gen_time, block_gen_energy=block_gen_energy,
+        propagation_delay=propagation_delay,
     )
 
     # ============================================================
@@ -230,9 +240,11 @@ def optimize(device_pool, miner_pool, s_d, beta=0.5,
             dev_selection = available_devs[top_indices]
 
         T, E = _round_cost(
-            device_pool, miner_pool, dev_selection, miner_set, a_fork,
-            epochs, kappa, model_size, bandwidth, noise_power,
-            block_gen_time, block_gen_energy,
+            device_pool, miner_pool, dev_selection, miner_set, a_fork, s_d=s_d,
+            epochs=epochs, kappa=kappa, model_size=model_size,
+            bandwidth=bandwidth, noise_power=noise_power,
+            block_gen_time=block_gen_time, block_gen_energy=block_gen_energy,
+            propagation_delay=propagation_delay,
         )
 
         # Eq. 11: F = β·T̂² + (1-β)·Ê²
