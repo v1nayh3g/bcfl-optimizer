@@ -13,8 +13,9 @@ A Python library implementing the joint optimization algorithm from:
 ## Installation
 
 ```bash
-pip install -e .
+pip install bcfl-optimizer
 ```
+*(To include optional integrations like Flower, Pandas, or plotting, use `pip install bcfl-optimizer[all]`)*
 
 **Dependencies:** `numpy` (required), `pandas` (for CSV loading), `matplotlib` (for plotting examples).
 
@@ -77,6 +78,27 @@ Run optimization across multiple S_D values for parameter studies.
 
 ### `forking_probability(num_miners, ...)` / `forking_multiplier(...)`
 Blockchain forking model (Eq. 10).
+
+## Flower Integration
+
+The library natively supports the [Flower](https://flower.dev/) Federated Learning framework via a custom `Strategy` wrapping `FedAvg`.
+
+```python
+import flwr as fl
+from bcfl.flower import BCFLStrategy
+
+# Automatically selects the mathmatically optimal devices every FL round!
+strategy = BCFLStrategy(
+    device_pool=devices,
+    miner_pool=miners,
+    s_d=10,                      # target 10 devices per round
+    beta=0.5,                    # balanced latency/energy
+    fraction_fit=1.0,
+    fraction_evaluate=1.0,
+)
+
+fl.simulation.start_simulation(client_fn=client_fn, strategy=strategy)
+```
 
 ## Examples
 
